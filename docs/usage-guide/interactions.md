@@ -1,0 +1,272 @@
+# Interactions
+
+`instagrapi` provides various types of `Interactions` that can be used to control how the program will interact with the `Instagram`:
+
+* [`Media`](media.md) - Media (Photo, Video, Album, IGTV, Reels or Story)
+* [Types](types.md) - Field reference for public `instagrapi.types` models
+* [`Resource`](media.md) - Part of Media (for albums)
+* [`MediaOembed`](media.md) - Short version of Media
+* [`Account`](account.md) - Full private info for your account (e.g. email, phone_number)
+* [`TOTP`](totp.md) - 2FA TOTP helpers (generate seed, enable/disable TOTP, generate code as Google Authenticator)
+* [`User`](user.md) - Full public user data
+* [`UserShort`](user.md) - Short public user data (used in Usertag, Comment, Media, Direct)
+* [`Usertag`](user.md) - Tag user in Media (coordinates + UserShort)
+* [`Location`](location.md) - GEO location (GEO coordinates, name, address)
+* [`Hashtag`](hashtag.md) - Hashtag object (id, name, picture)
+* [`Collection`](collection.md) - Collection of medias (name, picture and list of medias)
+* [`Comment`](comment.md) - Comments to Media
+* [`Highlight`](highlight.md) - Highlights
+* [`Story`](story.md) - Story
+* [`StoryArchiveDay`](story.md) - Story archive day shell
+* [`StoryLink`](story.md) - Story link sticker
+* [`StoryLocation`](story.md) - Tag Location in Story (as sticker)
+* [`StoryMention`](story.md) - Mention users in Story (user, coordinates and dimensions)
+* [`StoryHashtag`](story.md) - Hashtag for story (as sticker)
+* [`StorySticker`](story.md) - Tag sticker to story (for example from giphy)
+* [`StoryBuild`](story.md) - [StoryBuilder](https://github.com/subzeroid/instagrapi/blob/master/instagrapi/story.py) return path to photo/video and mention co-ordinates
+* [`DirectThread`](direct.md) - Thread (topic) with messages in Direct
+* [`DirectMessage`](direct.md) - Message in Direct
+* [`Insight`](insight.md) - Insights for a post
+* [`Track`](track.md) - Music track (for Reels/Clips)
+* [`Note`](notes.md) - Direct Notes
+
+## Interacting with Instagram Account
+
+`instagrapi` provides the following `Interactions` that can be used to control and get the information about your `Instagram` account:
+
+* `Client(settings: dict = {}, proxy: str = "", tls_verify: Union[bool, str] = True)` - Init `instagrapi` client
+
+``` python
+cl.login("instagrapi", "42")
+# cl.login("instagrapi", "42", verification_code="123456")  # with 2FA verification_code
+# cl.login_by_sessionid("peiWooShooghahdi2Eip7phohph0eeng")
+cl.set_proxy("socks5://127.0.0.1:30235")
+# cl.set_proxy("http://username:password@127.0.0.1:8080")
+# cl.set_proxy("socks5://username:password@127.0.0.1:30235")
+# when addressing the proxy via hostname:
+# cl.set_proxy("socks5h://username:password@exampleproxy.tld:30235")
+
+print(cl.get_settings())
+print(cl.user_info(cl.user_id))
+```
+
+### Request
+
+| Property            | Description
+| ------------------- | --------------------------------------------------------------
+| request\_logger     | Logger in which various actions from Instagram are registered
+| request\_timeout    | Timeout in seconds between requests (1 second by default)
+| public\_request\_retries\_count | Default retry count for `public_request()`
+| public\_request\_retries\_timeout | Delay between `public_request()` retries
+| session\_retry\_total | Transport-level retry count for `public` and `private` sessions
+| session\_retry\_backoff\_factor | Backoff factor for transport-level retries
+| public\_transport | Public web transport: `requests` by default, or `curl` when `instagrapi[curl]` is installed
+| public\_transport\_impersonate | Browser fingerprint used by the optional curl public transport
+| tls\_verify | TLS certificate verification: `True` by default, `False` for temporary trusted MITM debugging, or a CA bundle path
+
+
+### Login
+
+| Method                               | Return  | Description
+| ------------------------------------ | ------- | -------------------------------------------------
+| login(username: str, password: str)  | bool    | Login by username and password (get new cookies if it does not exist in settings)
+| login(username: str, password: str, verification\_code: str) | bool | Login by username and password with 2FA verification code (use Google Authenticator or something similar to generate TOTP code, not work with SMS)
+| relogin()                            | bool    | Re-login with clean cookies (required cl.username and cl.password)
+| login\_by\_sessionid(sessionid: str) | bool    | Lightweight compatibility login using a session cookie value
+| inject\_sessionid\_to\_public()      | bool    | Inject sessionid from Private Session to Public Session
+| logout()                             | bool    | Logout
+
+`login_by_sessionid()` only works when Instagram accepts that `sessionid` for the private mobile API. A browser/web `sessionid` can be rejected with `login_required` or invalidated server-side; for long-lived automation, prefer `login()` once, then `dump_settings()` and reuse the saved settings.
+
+When `login_by_sessionid()` needs to recover the account username after a private profile lookup failure, it tries the private mobile profile stream before falling back to public/web GraphQL.
+
+You can pass settings to the Client (and save cookies), it has the following format:
+
+```python
+settings = {
+    "uuids": {
+        "phone_id": "57d64c41-a916-3fa5-bd7a-3796c1dab122",
+        "uuid": "8aa373c6-f316-44d7-b49e-d74563f4a8f3",
+        "client_session_id": "6c296d0a-3534-4dce-b5aa-a6a6ab017443",
+        "advertising_id": "8dc88b76-dfbc-44dc-abbc-31a6f1d54b04",
+        "device_id": "android-e021b636049dc0e9",
+    },
+    "authorization_data": {},  # sessionid / ds_user_id / authorization values
+    "cookies": {},  # saved cookies
+    "last_login": 1596069420.0000145,
+    "device_settings": {
+        "cpu": "h1",
+        "dpi": "640dpi",
+        "model": "h1",
+        "device": "RS988",
+        "resolution": "1440x2392",
+        "manufacturer": "LGE/lge",
+        "android_release": "6.0.1",
+        "android_version": 23,
+    },
+    "user_agent": "Instagram 385.0.0.47.74 Android (...)",
+    "country": "US",
+    "country_code": 1,
+    "locale": "en_US",
+    "timezone_offset": -14400,
+    "request_timeout": 1,
+    "public_request_retries_count": 3,
+    "public_request_retries_timeout": 2,
+    "session_retry_total": 3,
+    "session_retry_backoff_factor": 2,
+    "session_retry_statuses": [429, 500, 502, 503, 504],
+    "public_transport": "requests",
+    "public_transport_impersonate": "chrome136",
+    "tls_verify": True,
+}
+
+cl = Client(settings)
+```
+
+### Settings
+
+Store and manage uuids, device configuration, user agent, authorization data (aka cookies) and other session settings
+
+| Method                         | Return  | Description
+| ------------------------------ | ------- | ------------------------------------------------------------------
+| get\_settings()                | dict    | Return settings dict
+| set\_settings(settings: dict)  | bool    | Set session settings
+| load\_settings(path: Path)     | dict    | Load session settings from file
+| dump\_settings(path: Path)     | bool    | Serialize and save session settings to file
+
+In order for Instagram [to trust you more](https://github.com/subzeroid/instagrapi/discussions/220), use one stable device profile and one stable IP (or subnet) per account whenever possible:
+
+```python
+cl = Client()
+cl.login(USERNAME, PASSWORD)
+cl.dump_settings("/tmp/dump.json")
+```
+
+Next time:
+
+```python
+cl = Client()
+cl.load_settings("/tmp/dump.json")
+cl.login(USERNAME, PASSWORD)
+cl.dump_settings("/tmp/dump.json")
+```
+
+### Manage device, proxy and other account settings
+
+| Method                                   | Return | Description
+|------------------------------------------|------|----------------------------------------------------------------------------
+| set_proxy(dsn: str)                      | dict | Support socks and http/https proxy `scheme://username:password@host:port`
+| private.proxies                          | dict | Stores used proxy servers for private (mobile, v1) requests
+| public.proxies                           | dict | Stores used proxy servers for public (web, graphql) requests
+| set_device(device: dict)                 | bool | Change device settings ([Android Device Information Generator Online](https://www.myfakeinfo.com/mobile/get-android-device-information.php))
+| set_app(app: Union[str, Dict] = None)    | bool | Apply a supported Instagram app version profile (`app_version`, `version_code`, `bloks_versioning_id`)
+| device                                   | dict | Return device dict which we pass to Instagram
+| set_user_agent(user_agent: str = "")     | bool | Change User-Agent header ([User Agents](https://user-agents.net/applications/instagram-app))
+| cookie_dict                              | dict | Return cookies
+| user_id                                  | int  | Return your user_id (after login)
+| base_headers                             | dict | Base headers for Instagram
+| set_country(country: str = "US")         | bool | Set country (advice: use the country of your proxy)
+| set_country_code(country_code: int = 1)  | bool | Set country calling code. Default: +1 (USA)
+| set_locale(locale: str = "en_US")        | bool | Set locale (advice: use the locale of your proxy)
+| set_timezone_offset(seconds: int)        | bool | Set timezone offset in seconds
+| set_retry_config(...)                    | bool | Configure request timeout plus public/manual and session/transport retry settings
+| set_tls_verify(tls_verify: bool \| str)  | bool | Update TLS certificate verification for existing public, private and GraphQL sessions
+
+Example:
+
+```python
+cl = Client(
+    request_timeout=0,
+    public_request_retries_count=4,
+    public_request_retries_timeout=1,
+    session_retry_total=5,
+    session_retry_backoff_factor=1,
+)
+
+cl.set_retry_config(
+    public_request_retries_count=2,
+    public_request_retries_timeout=0,
+    session_retry_total=3,
+)
+```
+
+For public web endpoints that are sensitive to browser TLS fingerprints, install the optional curl transport:
+
+```bash
+pip install "instagrapi[curl]"
+```
+
+Then opt in explicitly:
+
+```python
+cl = Client(public_transport="curl", public_transport_impersonate="chrome136")
+```
+
+The default remains `public_transport="requests"`. Private mobile API requests still use the regular mobile session.
+See [Public Transport](public-transport.md) for live comparison results and caveats.
+
+### Private mobile headers
+
+`base_headers` follows the current supported Android app profile for normal private API requests, including static transport/network hints such as `X-FB-HTTP-Engine`, `X-Tigon-Is-Retry`, and `X-Zero-*`.
+
+Device-bound or attestation-style headers such as `x-meta-zca`, `x-meta-usdid`, and `x-ig-attest-params` are not generated by default. These values are tied to Android / Google Play / device signing context, so adding fake static values is more likely to hurt trust than help.
+
+### TLS verification and debugging proxies
+
+By default `instagrapi` verifies TLS certificates on all client sessions. Keep this enabled for production, residential proxies, and normal CONNECT-tunnel proxies.
+
+If you use a trusted local debugging proxy that intercepts TLS, prefer installing its CA certificate and pointing the client at that bundle:
+
+```python
+cl = Client(tls_verify="/path/to/proxy-ca.pem")
+```
+
+For short local captures you can disable verification explicitly:
+
+```python
+cl = Client(tls_verify=False)
+```
+
+Do not disable TLS verification on untrusted networks or shared proxies because session cookies and passwords can be intercepted.
+
+``` python
+cl = Client()
+
+# Los Angles user:
+cl.set_proxy('http://los:angeles@proxy.address:8080')
+cl.set_locale('en_US')
+cl.set_timezone_offset(-7 * 60 * 60)  # Los Angeles UTC (GMT) -7 hours == -25200 seconds
+cl.get_settings()
+{
+    ...
+    'user_agent': 'Instagram 194.0.0.36.172 Android (26/8.0.0; 480dpi; 1080x1920; Xiaomi; MI 5s; capricorn; qcom; en_US; 301484483)',
+    'country': 'US',
+    'country_code': 1,
+    'locale': 'en_US',
+    'timezone_offset': -25200
+}
+
+# Moscow user:
+cl.set_proxy('socks5://moscow:proxy@address:8080')
+cl.set_locale('ru_RU')
+cl.set_country_code(7)  # +7
+cl.set_timezone_offset(3 * 3600)  # Moscow UTC+3
+cl.get_settings()
+{
+    ...
+    'user_agent': 'Instagram 194.0.0.36.172 Android (26/8.0.0; 480dpi; 1080x1920; Xiaomi; MI 5s; capricorn; qcom; ru_RU; 301484483)',
+    'country': 'RU',
+    'country_code': 7,
+    'locale': 'ru_RU',
+    'timezone_offset': 10800
+}
+```
+
+## What's Next?
+
+* [Getting Started](../getting-started.md)
+* [Usage Guide](fundamentals.md)
+* [Best Practices](best-practices.md)
+* [Handle Exceptions](handle_exception.md)
+* [Challenge Resolver](challenge_resolver.md)
+* [Exceptions](../exceptions.md)
