@@ -248,11 +248,14 @@ def extract_gmaps_leads(req: GMapsExtractRequest):
                 phone = f"{country_code} {ddd} {p_mid}-{p_end}"
                 
             clean_slug = re.sub(r'[^a-zA-Z0-9]', '', b_name.lower())[:15]
+            clean_digits = re.sub(r'\D', '', phone)
             
             leads.append({
                 "id": f"gmap_lead_{i+1}",
                 "name": b_name,
                 "phone": phone,
+                "clean_phone": clean_digits,
+                "clean_username": f"{clean_slug}_{re.sub(r'[^a-zA-Z0-9]', '', neigh.lower())[:8]}",
                 "address": f"{neigh}, {query.split()[-1].title() if len(query.split()) > 1 else 'Região Metropolitana'}",
                 "rating": f"{rating_val} ⭐ ({review_count} avaliações)",
                 "website": f"https://www.{clean_slug}.com.br" if country_code == "+55" else f"https://www.{clean_slug}.com",
