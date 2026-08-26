@@ -173,6 +173,7 @@ def extract_gmaps_leads(req: GMapsExtractRequest):
     try:
         import re
         import random
+        import requests
         
         limit = min(max(req.limit, 5), 100)
         
@@ -180,6 +181,25 @@ def extract_gmaps_leads(req: GMapsExtractRequest):
         niche_input = (req.niche or "").strip()
         city_input = (req.city or "").strip()
         country_code = (req.country or "ES").strip().upper()
+
+        # Try live Playwright scraper first
+        try:
+            live_resp = requests.post(
+                "https://b2b.inhubflow.online/api/extract/gmaps",
+                json={
+                    "niche": niche_input,
+                    "city": city_input,
+                    "country": country_code,
+                    "limit": limit
+                },
+                timeout=35
+            )
+            if live_resp.status_code == 200:
+                data = live_resp.json()
+                if data.get("leads") and len(data.get("leads")) > 0:
+                    return data
+        except Exception as live_err:
+            logger.warning(f"Live Playwright scraper notice: {str(live_err)}")
         
         # Fallback if raw query was sent
         if not niche_input and req.query:
