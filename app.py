@@ -161,6 +161,8 @@ def extract_likers(req: ExtractLikersRequest):
         logger.error(f"Likers extraction error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
+from scraper_gmaps import scrape_google_maps_live
+
 class GMapsExtractRequest(BaseModel):
     query: Optional[str] = None
     niche: Optional[str] = None
@@ -169,35 +171,36 @@ class GMapsExtractRequest(BaseModel):
     limit: int = 30
 
 @app.post("/api/extract/gmaps", dependencies=[Depends(verify_token)])
-def extract_gmaps_leads(req: GMapsExtractRequest):
+async def extract_gmaps_leads(req: GMapsExtractRequest):
     try:
         import re
         import random
-        import requests
         
-        limit = min(max(req.limit, 5), 100)
+        limit = min(max(req.limit, 5), 50)
         
         # Resolve niche, city, country
         niche_input = (req.niche or "").strip()
         city_input = (req.city or "").strip()
         country_code = (req.country or "ES").strip().upper()
 
-        # Try live Playwright scraper first
+        # Execute Playwright Google Maps live scraper directly inside B2C microservice
         try:
-            live_resp = requests.post(
-                "https://b2b.inhubflow.online/api/extract/gmaps",
-                json={
+            live_leads = await scrape_google_maps_live(
+                niche=niche_input or "Empresas",
+                city=city_input or "Centro",
+                country=country_code,
+                limit=limit
+            )
+            if live_leads and len(live_leads) > 0:
+                return {
+                    "status": "success",
+                    "query": f"{niche_input} en {city_input}, {country_code}",
                     "niche": niche_input,
                     "city": city_input,
                     "country": country_code,
-                    "limit": limit
-                },
-                timeout=35
-            )
-            if live_resp.status_code == 200:
-                data = live_resp.json()
-                if data.get("leads") and len(data.get("leads")) > 0:
-                    return data
+                    "total_extracted": len(live_leads),
+                    "leads": live_leads
+                }
         except Exception as live_err:
             logger.warning(f"Live Playwright scraper notice: {str(live_err)}")
         
